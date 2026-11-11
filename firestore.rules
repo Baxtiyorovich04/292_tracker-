@@ -1,0 +1,86 @@
+rules_version = '2';
+
+// 292 privacy model
+// -----------------
+// Personal habits, transactions, budget, and history live only at users/{userId}.
+// The signed-in user is the only principal who can read or write that document.
+// publicProfiles exposes the scoreboard fields needed for Rank (no habits, notes, or money).
+// handles/{tag} is a public alias so friends can be added without sharing a raw user id.
+// Deploy with: firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read: if owns(userId);
+
+      allow create, update: if owns(userId)
+        && request.resource.data.profile is map
+        && request.resource.data.habits is list
+        && request.resource.data.transactions is list
+        && request.resource.data.history is list
+        && request.resource.data.habits.size() <= 200
+        && request.resource.data.transactions.size() <= 2000
+        && request.resource.data.history.size() <= 90;
+
+      allow delete: if owns(userId);
+    }
+
+    match /publicProfiles/{userId} {
+      allow read: if signedIn();
+
+      allow create, update: if owns(userId)
+        && request.resource.data.keys().hasOnly([
+          'displayName',
+          'handle',
+          'score',
+          'streak',
+          'completed',
+          'trend',
+          'updatedAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 40
+        && request.resource.data.handle is string
+        && request.resource.data.handle.size() <= 12
+        && (
+          request.resource.data.handle == ''
+          || request.resource.data.handle.matches('^[a-z0-9]{3,12}$')
+        )
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 100
+        && request.resource.data.streak is number
+        && request.resource.data.streak >= 0
+        && request.resource.data.streak <= 20000
+        && request.resource.data.completed is number
+        && request.resource.data.completed >= 0
+        && request.resource.data.trend is list
+        && request.resource.data.trend.size() <= 16
+        && request.resource.data.updatedAt is number;
+
+      allow delete: if owns(userId);
+    }
+
+    match /handles/{tag} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && tag.matches('^[a-z0-9]{3,12}$')
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid;
+
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+
+      allow update: if false;
+    }
+  }
+}
