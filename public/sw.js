@@ -1,4 +1,4 @@
-const CACHE = '292-shell-v1'
+const CACHE = '292-shell-v2'
 const SHELL = ['/', '/index.html', '/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -40,8 +40,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone()
-          caches.open(CACHE).then((cache) => cache.put('/index.html', copy)).catch(() => {})
+          if (response.ok) {
+            const copy = response.clone()
+            caches.open(CACHE).then((cache) => cache.put('/index.html', copy)).catch(() => {})
+          }
           return response
         })
         .catch(async () => (await caches.match('/index.html')) || (await caches.match('/'))),
