@@ -25,6 +25,7 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
   const [days, setDays] = useState([0, 1, 2, 3, 4, 5, 6])
   const [due, setDue] = useState(todayKey())
   const [remindAt, setRemindAt] = useState('')
+  const [minutes, setMinutes] = useState(0)
   const [error, setError] = useState('')
   const [confirming, setConfirming] = useState(false)
 
@@ -37,6 +38,7 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
     setDays(habit?.days?.length ? habit.days : [0, 1, 2, 3, 4, 5, 6])
     setDue(habit?.due || defaultDue || todayKey())
     setRemindAt(habit?.remindAt || '')
+    setMinutes(habit?.minutes || 0)
     setError('')
     setConfirming(false)
   }, [open, habit, defaultDue])
@@ -70,8 +72,15 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
       createdOn: habit?.createdOn || todayKey(),
       completedDates: habit?.completedDates || [],
       remindAt,
+      minutes,
     })
-    if (remindAt) await allowReminders()
+    if (remindAt) {
+      const allowed = await allowReminders()
+      if (!allowed) {
+        setError('Saved. Allow notifications so this habit can remind you at that time.')
+        return
+      }
+    }
     onClose()
   }
 
@@ -142,9 +151,26 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
             <input className="field mt-2" type="date" value={due} onChange={(event) => setDue(event.target.value)} />
           </label>
         )}
+        <div>
+          <span className="label">Timer</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[5, 10, 15, 25, 45, 60].map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={minutes === value}
+                className={`chip ${minutes === value ? 'chip-active' : ''}`}
+                onClick={() => setMinutes((current) => (current === value ? 0 : value))}
+              >
+                {value}m
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="block">
-          <span className="label">Remind me</span>
+          <span className="label">Habit time</span>
           <input className="field mt-2" type="time" value={remindAt} onChange={(event) => setRemindAt(event.target.value)} />
+          <span className="mt-2 block text-sm text-muted">A reminder fires at this time, on the days this habit is due.</span>
         </label>
         {remindAt ? (
           <button className="text-sm text-muted" type="button" onClick={() => setRemindAt('')}>

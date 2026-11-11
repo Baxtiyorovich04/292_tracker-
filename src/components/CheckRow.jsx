@@ -1,11 +1,13 @@
+import { useSyncExternalStore } from 'react'
 import { LayoutGroup, motion } from 'framer-motion'
-import { Check, Pencil } from 'lucide-react'
+import { Check, Pencil, Play, Square } from 'lucide-react'
 import { useConfetti } from './Confetti.jsx'
 import { Glyph } from './icons.jsx'
 import { useStore } from '../context/Store.jsx'
 import { todayKey } from '../lib/dates.js'
 import { clockLabel } from '../lib/format.js'
 import { habitStreak, isComplete, scheduleLabel, dueLabel } from '../lib/metrics.js'
+import { formatLeft, getTimers, startTimer, stopTimer, subscribeTimers } from '../lib/timers.js'
 
 export function CheckList({ title, items, selected, onEdit, empty }) {
   return (
@@ -67,16 +69,42 @@ function CheckRow({ habit, selected, onEdit }) {
           <span className="block truncate text-xs text-muted">
             {habit.note ? `${habit.note} · ` : ''}
             {meta}
+            {habit.minutes > 0 ? ` · ${habit.minutes} min` : ''}
             {habit.remindAt ? ` · ${clockLabel(habit.remindAt)}` : ''}
           </span>
         </span>
         <span className={`check ${done ? 'check-done' : ''}`}>{done && <Check size={18} strokeWidth={2.5} />}</span>
       </button>
+      {habit.minutes > 0 && <HabitTimer habit={habit} />}
       {onEdit && (
         <button type="button" className="grid h-11 w-11 shrink-0 place-items-center text-muted" aria-label={`Edit ${habit.title}`} onClick={() => onEdit(habit)}>
           <Pencil size={16} />
         </button>
       )}
     </motion.li>
+  )
+}
+
+function HabitTimer({ habit }) {
+  const timers = useSyncExternalStore(subscribeTimers, getTimers, getTimers)
+  const run = timers[habit.id]
+  const left = run ? Math.max(0, run.endsAt - Date.now()) : null
+
+  return (
+    <button
+      type="button"
+      className="grid h-11 min-w-11 shrink-0 place-items-center rounded-xl px-2 text-muted"
+      aria-label={run ? `Stop ${habit.title} timer` : `Start ${habit.minutes} minute timer for ${habit.title}`}
+      onClick={() => (run ? stopTimer(habit.id) : startTimer(habit))}
+    >
+      {run ? (
+        <span className="inline-flex items-center gap-1 nums text-xs text-ember">
+          <Square size={10} fill="currentColor" aria-hidden="true" />
+          {formatLeft(left)}
+        </span>
+      ) : (
+        <Play size={16} aria-hidden="true" />
+      )}
+    </button>
   )
 }

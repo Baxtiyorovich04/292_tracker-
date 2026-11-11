@@ -27,12 +27,9 @@ export function allowReminders() {
   return Notification.requestPermission().then((result) => result === 'granted')
 }
 
-function dueNow(habit, now) {
-  if (!TIME.test(habit?.remindAt || '')) return false
-  const [hour, minute] = habit.remindAt.split(':').map(Number)
-  const at = hour * 60 + minute
-  const minutes = now.getHours() * 60 + now.getMinutes()
-  if (minutes < at || minutes - at > 1) return false
+const GRACE_MINUTES = 20
+
+function scheduledToday(habit, now) {
   const date = todayKey(now)
   if (habit.type === 'side') {
     if (habit.due !== date) return false
@@ -40,6 +37,39 @@ function dueNow(habit, now) {
   }
   if (!(habit.days || []).includes(now.getDay())) return false
   return !(habit.completedDates || []).includes(date)
+}
+
+function dueNow(habit, now) {
+  if (!TIME.test(habit?.remindAt || '')) return false
+  const [hour, minute] = habit.remindAt.split(':').map(Number)
+  const at = hour * 60 + minute
+  const minutes = now.getHours() * 60 + now.getMinutes()
+  if (minutes < at || minutes - at > GRACE_MINUTES) return false
+  return scheduledToday(habit, now)
+}
+
+function waitUntil(habit, now) {
+  if (!TIME.test(habit?.remindAt || '') || !scheduledToday(habit, now)) return null
+  const [hour, minute] = habit.remindAt.split(':').map(Number)
+  const at = new Date(now)
+  at.setHours(hour, minute, 0, 0)
+  const delta = at.getTime() - now.getTime()
+  return delta >= 0 ? delta : null
+}
+
+let armed = 0
+
+export function armReminderClock(habits, onFire) {
+  window.clearTimeout(armed)
+  const now = new Date()
+  let soonest = null
+  for (const habit of habits || []) {
+    const wait = waitUntil(habit, now)
+    if (wait == null) continue
+    if (soonest == null || wait < soonest) soonest = wait
+  }
+  if (soonest == null) return
+  armed = window.setTimeout(() => onFire(), Math.min(soonest + 500, 2_000_000_000))
 }
 
 async function notify(habit, key) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Download, Flame, Moon, Smartphone, Sun, Upload } from 'lucide-react'
 import { useStore } from '../context/Store.jsx'
@@ -28,6 +28,7 @@ export function You() {
   } = useStore()
   const { theme, toggle } = useTheme()
   const fileRef = useRef(null)
+  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [handle, setHandle] = useState('')
   const [handleNote, setHandleNote] = useState('')
@@ -58,12 +59,10 @@ export function You() {
   }, [])
 
   if (!state) return null
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
-  const android = /android/i.test(navigator.userAgent)
   const cloud = !user ? 'On this device only' : sync === 'saving' ? 'Saving to cloud…' : sync === 'error' ? 'Cloud sync failed' : 'Cloud vault up to date'
 
   async function addWidget() {
-    if (installEvent) {
+    if (installEvent && !installed) {
       installEvent.prompt()
       const choice = await installEvent.userChoice
       window.__pwaInstall = null
@@ -71,10 +70,10 @@ export function You() {
       if (choice?.outcome === 'accepted') {
         setInstalled(true)
         setGuide('placed')
+        return
       }
-      return
     }
-    setGuide(ios ? 'ios' : installed || android ? 'placed' : 'install')
+    navigate('/widget?add=1')
   }
 
   async function saveHandle(event) {
@@ -170,25 +169,12 @@ export function You() {
         </Link>
       </section>
 
-      <Sheet open={Boolean(guide)} title="Add stats to your phone" onClose={() => setGuide(null)}>
-        <StatsPreview state={state} />
-        {guide === 'ios' ? (
-          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted">
-            <li>In Safari, tap the Share button.</li>
-            <li>Tap Add to Home Screen, then Add.</li>
-            <li>The icon opens 292. The first screen is this score, streak, and money. iPhone cannot pin a separate live widget from a website.</li>
-          </ol>
-        ) : guide === 'placed' ? (
-          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted">
-            <li>Long-press the 292 icon on your home screen.</li>
-            <li>Drag Stats onto the screen. It opens this score, streak, what’s left, and today’s open habits.</li>
-            <li>Today, Plan, and Wallet can be dragged from that same menu.</li>
-          </ol>
-        ) : (
-          <p className="mt-4 text-sm leading-relaxed text-muted">
-            Open 292 in Chrome on your phone and tap Add to phone. Accept Install, then long-press the 292 icon and drag Stats onto the home screen.
-          </p>
-        )}
+      <Sheet open={guide === 'placed'} title="Place the stats shortcut" onClose={() => setGuide(null)}>
+        <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted">
+          <li>Long-press the 292 icon on your home screen.</li>
+          <li>Drag Stats onto the screen. It opens this score, streak, what’s left, and today’s open habits.</li>
+          <li>Today, Plan, and Wallet can be dragged from that same menu.</li>
+        </ol>
         <button className="btn btn-line mt-5 w-full" type="button" onClick={() => setGuide(null)}>
           Done
         </button>

@@ -25,6 +25,7 @@ function sanitizeHabit(habit) {
       ? [...new Set(habit.completedDates.filter((date) => DATE.test(date)))].sort()
       : [],
     remindAt: TIME.test(habit.remindAt || '') ? habit.remindAt : '',
+    minutes: Math.min(180, Math.max(0, Math.round(Number(habit.minutes) || 0))),
   }
 }
 

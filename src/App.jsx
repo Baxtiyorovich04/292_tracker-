@@ -10,7 +10,7 @@ import { Home } from './pages/Home.jsx'
 import { Planner } from './pages/Planner.jsx'
 import { You } from './pages/You.jsx'
 import { Widget } from './pages/Widget.jsx'
-import { fireDueReminders } from './lib/reminders.js'
+import { armReminderClock, fireDueReminders } from './lib/reminders.js'
 
 const Finance = lazy(() => import('./pages/Finance.jsx').then((module) => ({ default: module.Finance })))
 const Rank = lazy(() => import('./pages/Rank.jsx').then((module) => ({ default: module.Rank })))
@@ -21,6 +21,7 @@ function Reminders() {
     if (!state) return undefined
     const run = () => {
       fireDueReminders(state.habits).catch(() => {})
+      armReminderClock(state.habits, run)
     }
     run()
     const id = window.setInterval(run, 20000)
