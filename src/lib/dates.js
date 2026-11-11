@@ -22,6 +22,18 @@ export function lastNDays(count, today = todayKey()) {
   return days
 }
 
+export function monthToDate(today = todayKey()) {
+  const day = Number(today.slice(8, 10)) || 1
+  const prefix = today.slice(0, 8)
+  const days = []
+  for (let cursor = 1; cursor <= day; cursor += 1) days.push(`${prefix}${String(cursor).padStart(2, '0')}`)
+  return days
+}
+
+export function monthLabel(today = todayKey()) {
+  return parseKey(today).toLocaleDateString(undefined, { month: 'long' })
+}
+
 export function formatPretty(key) {
   return parseKey(key).toLocaleDateString(undefined, {
     weekday: 'long',

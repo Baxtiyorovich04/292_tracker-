@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { HABIT_ICONS } from '../lib/catalog.js'
 import { todayKey } from '../lib/dates.js'
 import { useStore } from '../context/Store.jsx'
+import { allowReminders } from '../lib/reminders.js'
 import { Glyph } from './icons.jsx'
 import { Sheet } from './ui.jsx'
 
@@ -23,6 +24,7 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
   const [icon, setIcon] = useState('dumbbell')
   const [days, setDays] = useState([0, 1, 2, 3, 4, 5, 6])
   const [due, setDue] = useState(todayKey())
+  const [remindAt, setRemindAt] = useState('')
   const [error, setError] = useState('')
   const [confirming, setConfirming] = useState(false)
 
@@ -34,6 +36,7 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
     setIcon(habit?.icon || 'dumbbell')
     setDays(habit?.days?.length ? habit.days : [0, 1, 2, 3, 4, 5, 6])
     setDue(habit?.due || defaultDue || todayKey())
+    setRemindAt(habit?.remindAt || '')
     setError('')
     setConfirming(false)
   }, [open, habit, defaultDue])
@@ -42,7 +45,7 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
     setDays((current) => (current.includes(day) ? current.filter((item) => item !== day) : [...current, day]))
   }
 
-  function save() {
+  async function save() {
     const clean = title.trim()
     if (!clean) {
       setError('Give it a name.')
@@ -66,7 +69,9 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
       due: type === 'side' ? due : '',
       createdOn: habit?.createdOn || todayKey(),
       completedDates: habit?.completedDates || [],
+      remindAt,
     })
+    if (remindAt) await allowReminders()
     onClose()
   }
 
@@ -137,6 +142,15 @@ export function HabitSheet({ open, habit, defaultDue, onClose }) {
             <input className="field mt-2" type="date" value={due} onChange={(event) => setDue(event.target.value)} />
           </label>
         )}
+        <label className="block">
+          <span className="label">Remind me</span>
+          <input className="field mt-2" type="time" value={remindAt} onChange={(event) => setRemindAt(event.target.value)} />
+        </label>
+        {remindAt ? (
+          <button className="text-sm text-muted" type="button" onClick={() => setRemindAt('')}>
+            Clear reminder
+          </button>
+        ) : null}
         {error && (
           <p className="text-sm text-ember" role="alert">
             {error}

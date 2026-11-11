@@ -1,4 +1,4 @@
-import { lastNDays, parseKey, shiftDay, shortDate, todayKey } from './dates.js'
+import { monthToDate, parseKey, shiftDay, shortDate, todayKey } from './dates.js'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -18,6 +18,14 @@ export function dayProgress(habits, date) {
   return 'partial'
 }
 
+export function dayHeat(habits, date) {
+  const list = habits || []
+  const dueHabits = list.filter((habit) => isDue(habit, date))
+  const done = dueHabits.filter((habit) => (habit.completedDates || []).includes(habit.type === 'side' ? habit.due : date)).length
+  if (!dueHabits.length) return { due: 0, done: 0, level: -1 }
+  return { due: dueHabits.length, done, level: Math.min(4, done) }
+}
+
 export function isComplete(habit, date) {
   if (!habit) return false
   const when = habit.type === 'side' ? habit.due : date
@@ -25,7 +33,7 @@ export function isComplete(habit, date) {
 }
 
 export function disciplineScore(habits, today = todayKey()) {
-  const window = lastNDays(14, today)
+  const window = monthToDate(today)
   const ratios = []
 
   for (const day of window) {
@@ -128,6 +136,48 @@ export function monthIncome(transactions, today = todayKey()) {
     .reduce((sum, item) => sum + Number(item.amount || 0), 0)
 }
 
+export function cashBalance(transactions) {
+  let income = 0
+  let spent = 0
+  for (const item of transactions || []) {
+    const amount = Number(item.amount) || 0
+    if (item.kind === 'income') income += amount
+    else spent += amount
+  }
+  return {
+    balance: Math.round((income - spent) * 100) / 100,
+    income: Math.round(income * 100) / 100,
+    spent: Math.round(spent * 100) / 100,
+  }
+}
+
+export function balanceSeries(transactions, today = todayKey()) {
+  const items = [...(transactions || [])]
+    .filter((item) => item && item.date && Number(item.amount) > 0)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.createdAt || '').localeCompare(String(b.createdAt || ''))))
+
+  let balance = 0
+  const points = items.map((item) => {
+    const amount = Number(item.amount) || 0
+    const income = item.kind === 'income'
+    const delta = income ? amount : -amount
+    balance = Math.round((balance + delta) * 100) / 100
+    return {
+      date: item.date,
+      balance,
+      delta,
+      kind: income ? 'income' : 'expense',
+      name: item.description || item.category || (income ? 'Income' : 'Expense'),
+    }
+  })
+
+  if (!points.length) return []
+  const series = [{ date: points[0].date, balance: 0, delta: 0, kind: 'start', name: 'Start' }, ...points]
+  const last = series[series.length - 1]
+  if (last.date < today) series.push({ date: today, balance: last.balance, delta: 0, kind: 'now', name: 'Now' })
+  return series
+}
+
 export function withHistory(state, today = todayKey()) {
   const { score } = disciplineScore(state.habits || [], today)
   const history = [
@@ -145,6 +195,7 @@ export function summarize(state, today = todayKey()) {
   const scored = disciplineScore(habits, today)
   const spent = monthSpent(transactions, today)
   const income = monthIncome(transactions, today)
+  const wallet = cashBalance(transactions)
   const budget = Number(state?.profile?.monthlyBudget) || 0
   const yesterday = (state?.history || []).find((point) => point.date === shiftDay(today, -1))
   const day = Number(today.slice(8, 10)) || 1
@@ -154,6 +205,7 @@ export function summarize(state, today = todayKey()) {
     completed: completionCount(habits),
     spent,
     income,
+    balance: wallet.balance,
     budget,
     left: budget - spent,
     average: spent / day,

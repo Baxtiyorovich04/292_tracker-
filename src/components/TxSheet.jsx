@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CATEGORIES, categoryLabel } from '../lib/catalog.js'
+import { CATEGORIES, INCOME_CATEGORIES, categoryLabel } from '../lib/catalog.js'
 import { todayKey } from '../lib/dates.js'
 import { useStore } from '../context/Store.jsx'
 import { Glyph } from './icons.jsx'
@@ -17,14 +17,24 @@ export function TxSheet({ open, tx, defaultDate, onClose }) {
 
   useEffect(() => {
     if (!open) return
+    const openingKind = tx?.kind === 'income' ? 'income' : 'expense'
+    const openingChoices = openingKind === 'income' ? INCOME_CATEGORIES : CATEGORIES
     setAmount(tx ? String(tx.amount) : '')
-    setKind(tx?.kind === 'income' ? 'income' : 'expense')
-    setCategory(tx?.category || 'food')
+    setKind(openingKind)
+    setCategory(openingChoices.some((item) => item.id === tx?.category) ? tx.category : openingChoices[0].id)
     setDescription(tx?.description || '')
     setDate(tx?.date || defaultDate || todayKey())
     setError('')
     setConfirming(false)
   }, [open, tx, defaultDate])
+
+  const choices = kind === 'income' ? INCOME_CATEGORIES : CATEGORIES
+
+  function chooseKind(next) {
+    const nextChoices = next === 'income' ? INCOME_CATEGORIES : CATEGORIES
+    setKind(next)
+    if (!nextChoices.some((item) => item.id === category)) setCategory(nextChoices[0].id)
+  }
 
   function save() {
     const value = Math.round(Number(amount) * 100) / 100
@@ -60,7 +70,7 @@ export function TxSheet({ open, tx, defaultDate, onClose }) {
               key={id}
               type="button"
               className={`rounded-xl px-3 py-2 text-sm font-medium ${kind === id ? 'bg-ember text-ink' : 'text-muted'}`}
-              onClick={() => setKind(id)}
+              onClick={() => chooseKind(id)}
             >
               {label}
             </button>
@@ -80,7 +90,7 @@ export function TxSheet({ open, tx, defaultDate, onClose }) {
         <div>
           <span className="label">Category</span>
           <div className="mt-2 flex flex-wrap gap-2">
-            {CATEGORIES.map((item) => (
+            {choices.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -100,7 +110,7 @@ export function TxSheet({ open, tx, defaultDate, onClose }) {
             className="field mt-2"
             value={description}
             maxLength={80}
-            placeholder="Lunch, fare, subscription"
+            placeholder={kind === 'income' ? 'Paycheck, client, gift' : 'Lunch, fare, subscription'}
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>

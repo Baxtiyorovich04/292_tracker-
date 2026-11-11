@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Download, Moon, Sun, Upload } from 'lucide-react'
+import { Download, Flame, Moon, Smartphone, Sun, Upload } from 'lucide-react'
 import { useStore } from '../context/Store.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { CURRENCIES, firebaseConfigured } from '../lib/catalog.js'
+import { todayKey } from '../lib/dates.js'
+import { money } from '../lib/format.js'
+import { summarize } from '../lib/metrics.js'
 import { AuthForm } from '../components/AuthForm.jsx'
-import { useTitle } from '../components/ui.jsx'
+import { Sheet, useTitle } from '../components/ui.jsx'
 
 export function You() {
   const {
@@ -33,6 +37,7 @@ export function You() {
   const [installed, setInstalled] = useState(
     () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true,
   )
+  const [guide, setGuide] = useState(null)
   useTitle('You')
 
   useEffect(() => {
@@ -54,7 +59,23 @@ export function You() {
 
   if (!state) return null
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  const android = /android/i.test(navigator.userAgent)
   const cloud = !user ? 'On this device only' : sync === 'saving' ? 'Saving to cloud…' : sync === 'error' ? 'Cloud sync failed' : 'Cloud vault up to date'
+
+  async function addWidget() {
+    if (installEvent) {
+      installEvent.prompt()
+      const choice = await installEvent.userChoice
+      window.__pwaInstall = null
+      setInstallEvent(null)
+      if (choice?.outcome === 'accepted') {
+        setInstalled(true)
+        setGuide('placed')
+      }
+      return
+    }
+    setGuide(ios ? 'ios' : installed || android ? 'placed' : 'install')
+  }
 
   async function saveHandle(event) {
     event.preventDefault()
@@ -133,31 +154,45 @@ export function You() {
         </label>
       </section>
 
-      <section className="card space-y-3 rounded-3xl p-5">
-        <h2 className="font-display text-2xl">Install</h2>
-        {installed ? (
-          <p className="text-sm text-muted">292 is already installed on this device.</p>
-        ) : installEvent ? (
-          <button
-            className="btn btn-ember"
-            type="button"
-            onClick={async () => {
-              installEvent.prompt()
-              await installEvent.userChoice
-              window.__pwaInstall = null
-              setInstallEvent(null)
-            }}
-          >
-            Add to Home Screen
-          </button>
+      <section className="card space-y-4 rounded-3xl p-5">
+        <div>
+          <h2 className="font-display text-2xl">Phone widget</h2>
+          <p className="mt-1 text-sm text-muted">Same score, streak, and money as the main stats.</p>
+        </div>
+        <StatsPreview state={state} />
+        <button className="btn btn-ember w-full" type="button" onClick={addWidget}>
+          <Smartphone size={18} />
+          Add to phone
+        </button>
+        {installed ? <p className="text-sm text-muted">292 is installed on this device.</p> : null}
+        <Link className="text-sm text-muted" to="/widget">
+          Open the stats screen
+        </Link>
+      </section>
+
+      <Sheet open={Boolean(guide)} title="Add stats to your phone" onClose={() => setGuide(null)}>
+        <StatsPreview state={state} />
+        {guide === 'ios' ? (
+          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted">
+            <li>In Safari, tap the Share button.</li>
+            <li>Tap Add to Home Screen, then Add.</li>
+            <li>The icon opens 292. The first screen is this score, streak, and money. iPhone cannot pin a separate live widget from a website.</li>
+          </ol>
+        ) : guide === 'placed' ? (
+          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted">
+            <li>Long-press the 292 icon on your home screen.</li>
+            <li>Drag Stats onto the screen. It opens this score, streak, what’s left, and today’s open habits.</li>
+            <li>Today, Plan, and Wallet can be dragged from that same menu.</li>
+          </ol>
         ) : (
-          <p className="text-sm leading-relaxed text-muted">
-            {ios
-              ? 'In Safari, open Share, then Add to Home Screen.'
-              : 'From the browser menu, choose Install app or Add to Home Screen. On Android, 292 also adds shortcuts for Today, Plan, and Wallet.'}
+          <p className="mt-4 text-sm leading-relaxed text-muted">
+            Open 292 in Chrome on your phone and tap Add to phone. Accept Install, then long-press the 292 icon and drag Stats onto the home screen.
           </p>
         )}
-      </section>
+        <button className="btn btn-line mt-5 w-full" type="button" onClick={() => setGuide(null)}>
+          Done
+        </button>
+      </Sheet>
 
       <section className="card space-y-4 rounded-3xl p-5">
         <h2 className="font-display text-2xl">Account</h2>
@@ -233,5 +268,40 @@ export function You() {
         )}
       </section>
     </motion.div>
+  )
+}
+
+function StatsPreview({ state }) {
+  const stats = summarize(state, todayKey())
+  const currency = state.profile?.currency || 'USD'
+  const moneyLabel = stats.budget > 0 ? (stats.left < 0 ? 'Over' : 'Left') : 'Balance'
+  const figure = stats.budget > 0 ? money(stats.left, currency) : money(stats.balance, currency)
+
+  return (
+    <div className="rounded-2xl border border-line bg-bg p-4">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="font-display nums text-5xl leading-none tracking-tight">{stats.score}</p>
+          <p className="label mt-2">Score</p>
+        </div>
+        <div className="text-right">
+          <p className="font-display nums text-2xl leading-none tracking-tight">{figure}</p>
+          <p className="label mt-2">{moneyLabel}</p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div>
+          <p className="label">Streak</p>
+          <p className="mt-1 flex items-center gap-1 font-display nums text-2xl leading-none">
+            <Flame size={16} className="text-ember" aria-hidden="true" />
+            {stats.streak}
+          </p>
+        </div>
+        <div>
+          <p className="label">Done</p>
+          <p className="mt-1 font-display nums text-2xl leading-none">{stats.completed}</p>
+        </div>
+      </div>
+    </div>
   )
 }

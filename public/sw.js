@@ -1,4 +1,4 @@
-const CACHE = '292-shell-v2'
+const CACHE = '292-shell-v3'
 const SHELL = ['/', '/index.html', '/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -63,5 +63,17 @@ self.addEventListener('fetch', (event) => {
         .catch(() => cached)
       return cached || network
     })(),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = new URL(event.notification.data?.url || '/', self.location.origin).href
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((client) => client.url.startsWith(self.location.origin))
+      if (open) return open.focus()
+      return self.clients.openWindow(target)
+    }),
   )
 })

@@ -1,6 +1,7 @@
 import { todayKey } from './dates.js'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 const CURRENCIES = new Set(['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'PKR', 'JPY'])
 
 function sanitizeHabit(habit) {
@@ -23,6 +24,7 @@ function sanitizeHabit(habit) {
     completedDates: Array.isArray(habit.completedDates)
       ? [...new Set(habit.completedDates.filter((date) => DATE.test(date)))].sort()
       : [],
+    remindAt: TIME.test(habit.remindAt || '') ? habit.remindAt : '',
   }
 }
 

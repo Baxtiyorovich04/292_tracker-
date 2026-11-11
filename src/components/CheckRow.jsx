@@ -4,6 +4,7 @@ import { useConfetti } from './Confetti.jsx'
 import { Glyph } from './icons.jsx'
 import { useStore } from '../context/Store.jsx'
 import { todayKey } from '../lib/dates.js'
+import { clockLabel } from '../lib/format.js'
 import { habitStreak, isComplete, scheduleLabel, dueLabel } from '../lib/metrics.js'
 
 export function CheckList({ title, items, selected, onEdit, empty }) {
@@ -50,7 +51,7 @@ function CheckRow({ habit, selected, onEdit }) {
   }
 
   return (
-    <motion.li layout className="card flex items-center gap-1 rounded-2xl pr-2">
+    <motion.li layout className="card flex w-full min-w-0 items-center gap-1 rounded-2xl pr-1 sm:pr-2">
       <button
         type="button"
         onClick={complete}
@@ -66,12 +67,13 @@ function CheckRow({ habit, selected, onEdit }) {
           <span className="block truncate text-xs text-muted">
             {habit.note ? `${habit.note} · ` : ''}
             {meta}
+            {habit.remindAt ? ` · ${clockLabel(habit.remindAt)}` : ''}
           </span>
         </span>
         <span className={`check ${done ? 'check-done' : ''}`}>{done && <Check size={18} strokeWidth={2.5} />}</span>
       </button>
       {onEdit && (
-        <button type="button" className="grid h-11 w-11 place-items-center text-muted" aria-label={`Edit ${habit.title}`} onClick={() => onEdit(habit)}>
+        <button type="button" className="grid h-11 w-11 shrink-0 place-items-center text-muted" aria-label={`Edit ${habit.title}`} onClick={() => onEdit(habit)}>
           <Pencil size={16} />
         </button>
       )}

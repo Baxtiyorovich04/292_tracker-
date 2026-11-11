@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import {
+  balanceSeries,
+  cashBalance,
   currentStreak,
+  dayHeat,
   disciplineScore,
   habitStreak,
   monthSpent,
@@ -44,7 +47,7 @@ assert.equal(disciplineScore([empty], '2026-11-11').score, 0)
 assert.equal(currentStreak([empty], '2026-11-11'), 0)
 
 const halfDates = windowDates.filter((_, index) => index % 2 === 0)
-assert.equal(disciplineScore([mainHabit({ completedDates: halfDates })], '2026-11-11').score, 50)
+assert.equal(disciplineScore([mainHabit({ completedDates: halfDates })], '2026-11-11').score, 45)
 
 const quests = [0, 1].map((index) => ({
   id: `q${index}`,
@@ -54,7 +57,7 @@ const quests = [0, 1].map((index) => ({
   createdOn: '2026-10-29',
   completedDates: ['2026-11-0' + (index + 1)],
 }))
-assert.equal(disciplineScore([mainHabit({ completedDates: halfDates }), ...quests], '2026-11-11').score, 56)
+assert.equal(disciplineScore([mainHabit({ completedDates: halfDates }), ...quests], '2026-11-11').score, 51)
 assert.equal(disciplineScore([mainHabit({ completedDates: windowDates }), ...quests], '2026-11-11').score, 100)
 
 const held = mainHabit({ completedDates: datesBetween('2026-10-29', '2026-11-10') })
@@ -80,6 +83,53 @@ const questOnly = {
   completedDates: ['2026-11-11'],
 }
 assert.equal(disciplineScore([questOnly], '2026-11-11').score, 20)
+
+const monthOnly = mainHabit({ completedDates: datesBetween('2026-11-01', '2026-11-11') })
+assert.equal(disciplineScore([monthOnly], '2026-11-11').score, 100)
+
+const todayOnly = mainHabit({
+  createdOn: '2026-11-01',
+  completedDates: ['2026-11-11'],
+})
+assert.equal(disciplineScore([todayOnly], '2026-11-11').score, 9)
+
+assert.deepEqual(
+  cashBalance([
+    { amount: 100, kind: 'income', date: '2026-10-02' },
+    { amount: 12.5, kind: 'expense', date: '2026-11-02' },
+    { amount: 40, kind: 'income', date: '2026-11-03' },
+  ]),
+  { balance: 127.5, income: 140, spent: 12.5 },
+)
+
+assert.equal(dayHeat([perfect], '2026-11-11').level, 1)
+assert.equal(dayHeat([perfect, mainHabit({ id: 'b' }), mainHabit({ id: 'c' })], '2026-11-10').level, 1)
+assert.equal(
+  dayHeat(
+    [0, 1, 2, 3].map((id) => mainHabit({ id: String(id), completedDates: ['2026-11-11'] })),
+    '2026-11-11',
+  ).level,
+  4,
+)
+assert.equal(dayHeat([], '2026-11-11').level, -1)
+
+assert.deepEqual(
+  balanceSeries(
+    [
+      { amount: 100, kind: 'income', date: '2026-11-02', createdAt: 'a', description: 'Pay' },
+      { amount: 40, kind: 'expense', date: '2026-11-02', createdAt: 'b', description: 'Food' },
+      { amount: 10, kind: 'income', date: '2026-11-05', createdAt: 'c', description: 'Gift' },
+    ],
+    '2026-11-11',
+  ).map((point) => [point.kind, point.balance]),
+  [
+    ['start', 0],
+    ['income', 100],
+    ['expense', 60],
+    ['income', 70],
+    ['now', 70],
+  ],
+)
 
 assert.equal(
   monthSpent(

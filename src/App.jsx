@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { StoreProvider, useStore } from './context/Store.jsx'
@@ -9,9 +9,32 @@ import { Welcome } from './pages/Welcome.jsx'
 import { Home } from './pages/Home.jsx'
 import { Planner } from './pages/Planner.jsx'
 import { You } from './pages/You.jsx'
+import { Widget } from './pages/Widget.jsx'
+import { fireDueReminders } from './lib/reminders.js'
 
 const Finance = lazy(() => import('./pages/Finance.jsx').then((module) => ({ default: module.Finance })))
 const Rank = lazy(() => import('./pages/Rank.jsx').then((module) => ({ default: module.Rank })))
+
+function Reminders() {
+  const { state } = useStore()
+  useEffect(() => {
+    if (!state) return undefined
+    const run = () => {
+      fireDueReminders(state.habits).catch(() => {})
+    }
+    run()
+    const id = window.setInterval(run, 20000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') run()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [state])
+  return null
+}
 
 function Screens() {
   const { ready, user, demo, notice } = useStore()
@@ -31,6 +54,7 @@ function Screens() {
       <Route path="/wallet" element={<Finance />} />
       <Route path="/rank" element={<Rank />} />
       <Route path="/you" element={<You />} />
+      <Route path="/widget" element={<Widget />} />
       <Route path="*" element={<Navigate to={authed ? '/' : '/enter'} replace />} />
     </Routes>
     </Suspense>
@@ -39,7 +63,7 @@ function Screens() {
   return (
     <>
       {notice ? <div className="toast">{notice}</div> : null}
-      {location.pathname === '/enter' ? pages : <Shell>{pages}</Shell>}
+      {location.pathname === '/enter' || location.pathname === '/widget' ? pages : <Shell>{pages}</Shell>}
     </>
   )
 }
@@ -50,6 +74,7 @@ export default function App() {
       <ConfettiProvider>
         <StoreProvider>
           <BrowserRouter>
+            <Reminders />
             <Screens />
           </BrowserRouter>
         </StoreProvider>

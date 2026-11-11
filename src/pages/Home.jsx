@@ -12,6 +12,7 @@ import { useTitle } from '../components/ui.jsx'
 export function Home() {
   const { state, updateProfile } = useStore()
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(null)
   useTitle('Today')
   if (!state) return null
 
@@ -21,14 +22,14 @@ export function Home() {
   const hasMains = state.habits.some((habit) => habit.type !== 'side')
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="grid items-start gap-4 lg:grid-cols-12">
-      <div className="order-1 lg:order-2 lg:col-span-5 lg:sticky lg:top-6">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
+      <div className="order-1 min-w-0 lg:sticky lg:top-6">
         <ScoreCard />
       </div>
-      <div className="order-2 space-y-5 lg:order-1 lg:col-span-7">
-        <header>
+      <div className="order-2 min-w-0 space-y-5">
+        <header className="min-w-0">
           <p className="label">{formatPretty(today)}</p>
-          <h1 className="mt-2 font-display text-4xl tracking-tight md:text-5xl">
+          <h1 className="mt-2 break-words font-display text-3xl tracking-tight sm:text-4xl md:text-5xl">
             {greeting()}
             {name ? `, ${name}` : ''}
           </h1>
@@ -47,12 +48,14 @@ export function Home() {
           title="Main habits"
           items={mains}
           selected={today}
+          onEdit={setEditing}
           empty={hasMains ? 'Rest day. Nothing scheduled, so the streak can hold.' : 'Add a main habit to start a streak.'}
         />
         <CheckList
           title="Side quests"
           items={sides}
           selected={today}
+          onEdit={setEditing}
           empty="No open quests. One-off tasks land here."
         />
         <button className="btn btn-ember w-full sm:w-auto" type="button" onClick={() => setOpen(true)}>
@@ -60,7 +63,15 @@ export function Home() {
           Add habit or quest
         </button>
       </div>
-      <HabitSheet open={open} habit={null} defaultDue={today} onClose={() => setOpen(false)} />
+      <HabitSheet
+        open={open || Boolean(editing)}
+        habit={editing}
+        defaultDue={today}
+        onClose={() => {
+          setOpen(false)
+          setEditing(null)
+        }}
+      />
     </motion.div>
   )
 }

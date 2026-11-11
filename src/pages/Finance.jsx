@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2 } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ReferenceDot, Tooltip, XAxis, YAxis } from 'recharts'
 import { useStore } from '../context/Store.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { CATEGORIES, CATEGORY_COLORS, categoryLabel } from '../lib/catalog.js'
 import { lastNDays, shortDate, todayKey, weekdayInitial } from '../lib/dates.js'
 import { money } from '../lib/format.js'
-import { summarize } from '../lib/metrics.js'
+import { balanceSeries, cashBalance, summarize } from '../lib/metrics.js'
 import { TxSheet } from '../components/TxSheet.jsx'
 import { ChartBox } from '../components/ChartBox.jsx'
 import { useTitle } from '../components/ui.jsx'
@@ -23,6 +23,21 @@ export function Finance() {
   const today = todayKey()
   const stats = useMemo(() => (state ? summarize(state, today) : null), [state, today])
   const currency = state?.profile?.currency || 'USD'
+  const wallet = useMemo(() => cashBalance(state?.transactions), [state])
+  const rating = useMemo(() => {
+    const series = state ? balanceSeries(state.transactions, today) : []
+    if (!series.length) {
+      return [
+        { index: 0, date: `${today.slice(0, 8)}01`, label: 'Start', balance: 0, delta: 0, kind: 'start', name: 'Start' },
+        { index: 1, date: today, label: 'Now', balance: 0, delta: 0, kind: 'now', name: 'Now' },
+      ]
+    }
+    return series.map((point, index) => ({
+      index,
+      ...point,
+      label: index === 0 || index === series.length - 1 ? shortDate(point.date) : '',
+    }))
+  }, [state, today])
 
   const chart = useMemo(() => {
     if (!state) return { slices: [], days: [], groups: [] }
@@ -50,6 +65,12 @@ export function Finance() {
 
   if (!state || !stats) return null
   const colors = CATEGORY_COLORS[theme] || CATEGORY_COLORS.dark
+  const balances = rating.map((point) => point.balance)
+  const low = Math.min(0, ...balances)
+  const high = Math.max(0, ...balances)
+  const pad = Math.max(1, (high - low) * 0.18)
+  const domain = [low - pad, high + pad]
+  const latest = rating[rating.length - 1]
   const ratio = stats.budget > 0 ? Math.min(100, (stats.spent / stats.budget) * 100) : 0
   const tip = {
     background: theme === 'light' ? '#ffffff' : '#141414',
@@ -60,11 +81,11 @@ export function Finance() {
   const hasSpend = chart.days.some((day) => day.spent > 0) || chart.slices.length > 0
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="label">Wallet</p>
-          <h1 className="mt-1 font-display text-4xl tracking-tight">This month</h1>
+          <h1 className="mt-1 font-display text-3xl tracking-tight sm:text-4xl">This month</h1>
         </div>
         <button className="btn btn-ember" type="button" onClick={() => setOpen(true)}>
           <Plus size={18} />
@@ -92,6 +113,39 @@ export function Finance() {
         ) : (
           <p className="mt-4 text-sm text-muted">Set a monthly budget to track what’s left.</p>
         )}
+
+        <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="label">Balance</p>
+            <p className="mt-1 font-display nums text-3xl leading-none tracking-tight">{money(wallet.balance, currency)}</p>
+          </div>
+          <p className="text-right text-sm leading-relaxed text-muted">
+            <span className="label mb-1 block">All time</span>
+            Income {money(wallet.income, currency)}
+            <br />
+            Spent {money(wallet.spent, currency)}
+          </p>
+        </div>
+        <ChartBox height={168}>
+          {(width, height) => (
+            <AreaChart width={width} height={height} data={rating} margin={{ top: 16, right: 8, left: 8, bottom: 0 }}>
+              <defs>
+                <linearGradient id="balance-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#FF5100" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#FF5100" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="var(--line)" />
+              <XAxis dataKey="index" tickLine={false} axisLine={false} tickFormatter={(index) => rating[index]?.label || ''} tick={{ fill: 'var(--muted)', fontSize: 11 }} interval="preserveStartEnd" />
+              <YAxis hide domain={domain} />
+              <Tooltip content={<RatingTip currency={currency} />} cursor={{ stroke: 'rgba(255,81,0,0.45)', strokeWidth: 1 }} />
+              <Area type="monotone" dataKey="balance" stroke="#FF5100" strokeWidth={2.5} fill="url(#balance-fill)" dot={false} activeDot={{ r: 4, fill: '#FF5100', stroke: '#060607', strokeWidth: 2 }} isAnimationActive={false} />
+              <ReferenceDot x={latest.index} y={latest.balance} r={4} fill="#FF5100" stroke="#060607" strokeWidth={2} />
+            </AreaChart>
+          )}
+        </ChartBox>
+        <p className="text-sm text-muted">Every income lifts the line. Every spend pulls it down.</p>
+
         <label className="mt-4 block max-w-xs">
           <span className="label">Monthly budget</span>
           <input
@@ -198,6 +252,26 @@ export function Finance() {
 
       <TxSheet open={open || Boolean(editing)} tx={editing} defaultDate={today} onClose={() => { setOpen(false); setEditing(null) }} />
     </motion.div>
+  )
+}
+
+function RatingTip({ active, payload, currency }) {
+  if (!active || !payload?.length) return null
+  const point = payload[0].payload
+  const moved = point.kind === 'income' || point.kind === 'expense'
+  return (
+    <div className="rounded-2xl border border-line px-3 py-2 text-sm shadow-lg" style={{ background: 'var(--nav)', color: 'var(--fg)' }}>
+      <div className="text-muted">{shortDate(point.date)}</div>
+      {moved ? (
+        <div>
+          {point.kind === 'income' ? '+' : '−'}
+          {money(Math.abs(point.delta), currency)} {point.name}
+        </div>
+      ) : (
+        <div>{point.kind === 'start' ? 'Start' : 'Holding'}</div>
+      )}
+      <div className="nums font-medium">{money(point.balance, currency)}</div>
+    </div>
   )
 }
 

@@ -50,11 +50,11 @@ export function Planner() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="grid items-start gap-4 lg:grid-cols-12">
-      <section className="card rounded-3xl p-4 lg:col-span-7 lg:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="font-display text-3xl tracking-tight">{monthTitle(cursor.year, cursor.month)}</h1>
-          <div className="flex items-center gap-1">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="grid min-w-0 items-start gap-4 lg:grid-cols-12">
+      <section className="card min-w-0 rounded-3xl p-3 sm:p-4 lg:col-span-7 lg:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="min-w-0 font-display text-2xl leading-none tracking-tight sm:text-3xl">{monthTitle(cursor.year, cursor.month)}</h1>
+          <div className="flex shrink-0 items-center gap-1">
             <button className="btn btn-ghost h-11 w-11 p-0" type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
               <ChevronLeft size={18} />
             </button>
@@ -93,7 +93,7 @@ export function Planner() {
                 key={day}
                 type="button"
                 onClick={() => setSelected(day)}
-                className={`relative flex h-11 items-center justify-center rounded-2xl pb-1 text-sm nums ${isSelected ? 'bg-ember text-ink' : isToday ? 'ring-1 ring-ember' : ''}`}
+                className={`relative flex h-10 min-w-0 items-center justify-center rounded-xl pb-1 text-sm nums sm:h-11 sm:rounded-2xl ${isSelected ? 'bg-ember text-ink' : isToday ? 'ring-1 ring-ember' : ''}`}
               >
                 {Number(day.slice(-2))}
                 <span className={`absolute bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${dotClass(status, isSelected)}`} />
@@ -103,13 +103,13 @@ export function Planner() {
         </div>
       </section>
 
-      <section className="space-y-4 lg:col-span-5">
+      <section className="min-w-0 space-y-4 lg:col-span-5">
         <div className="flex items-end justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="label">{selected === today ? 'Today' : future ? 'Upcoming' : 'Logged day'}</p>
-            <h2 className="mt-1 font-display text-3xl tracking-tight">{formatPretty(selected)}</h2>
+            <h2 className="mt-1 font-display text-2xl leading-none tracking-tight sm:text-3xl">{formatPretty(selected)}</h2>
           </div>
-          <button className="btn btn-ember h-11 w-11 p-0" type="button" aria-label="Add to this day" onClick={() => setSheet({ habit: null })}>
+          <button className="btn btn-ember h-11 w-11 shrink-0 p-0" type="button" aria-label="Add to this day" onClick={() => setSheet({ habit: null })}>
             <Plus size={18} />
           </button>
         </div>
