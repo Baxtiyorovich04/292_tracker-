@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -10,15 +10,6 @@ const EDGE_CANDIDATES = [
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
 ]
 
-const browserPath = EDGE_CANDIDATES.find((path) => {
-  try {
-    return spawn ? true : false
-  } catch {
-    return false
-  }
-})
-
-import { existsSync } from 'node:fs'
 const executable = EDGE_CANDIDATES.find((path) => existsSync(path))
 if (!executable) {
   console.error('No Edge or Chrome found')
@@ -201,10 +192,18 @@ try {
   await waitFor('Food')
   const walletText = await bodyText()
   if (!walletText.includes('18')) throw new Error(`Amount did not show\n${walletText}`)
+  if (walletText.includes('…') || walletText.includes('...')) throw new Error(`Money was truncated\n${walletText}`)
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  const charts = await evaluate(`document.querySelectorAll('.recharts-surface').length`)
+  if (!charts) throw new Error('Expense chart did not render')
+  await evaluate(`document.querySelector('.recharts-surface')?.scrollIntoView({ block: 'center' })`)
+  await new Promise((resolve) => setTimeout(resolve, 200))
   await shot('06-wallet-logged.png')
 
   await clickText('Rank')
   await waitFor('Amina Cole')
+  await evaluate(`[...document.querySelectorAll('h2')].find((node) => node.textContent.includes('14-day'))?.scrollIntoView({ block: 'center' })`)
+  await new Promise((resolve) => setTimeout(resolve, 250))
   await shot('07-rank.png')
 
   await clickText('You')
@@ -217,6 +216,7 @@ try {
   await setViewport(1440, 900, false)
   await clickText('Home')
   await waitFor('Discipline, measured.')
+  await new Promise((resolve) => setTimeout(resolve, 600))
   const overflow = await evaluate(`document.documentElement.scrollWidth > window.innerWidth + 1`)
   await shot('09-desktop.png')
   if (overflow) throw new Error('Desktop page overflows horizontally')

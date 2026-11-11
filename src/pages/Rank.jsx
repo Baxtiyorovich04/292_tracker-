@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 import { useStore } from '../context/Store.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { lastNDays, todayKey } from '../lib/dates.js'
 import { summarize } from '../lib/metrics.js'
 import { PRACTICE_CREW, crewBenchmark } from '../lib/practice.js'
 import { useTitle } from '../components/ui.jsx'
+import { ChartBox } from '../components/ChartBox.jsx'
 
 function byRank(a, b) {
   return b.score - a.score || b.streak - a.streak || String(a.displayName).localeCompare(String(b.displayName))
@@ -138,8 +139,15 @@ export function Rank() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{row.you ? 'You' : row.displayName}</span>
                   <span className="block truncate text-xs text-muted">
-                    {row.handle ? `@${row.handle}` : row.practice ? 'Practice' : 'Player'}
-                    {row.you && state.profile.displayName ? ` · ${state.profile.displayName}` : ''}
+                    {row.you
+                      ? row.handle
+                        ? `@${row.handle}`
+                        : 'Your score'
+                      : row.handle
+                        ? `@${row.handle}`
+                        : row.practice
+                          ? 'Practice'
+                          : 'Player'}
                   </span>
                 </span>
                 <span className="text-right">
@@ -169,18 +177,18 @@ export function Rank() {
             ? 'Orange is you. The dashed line is the average of friends who already have a saved trend.'
             : 'Orange is your real score. The dashed line is the practice crew benchmark.'}
         </p>
-        <div className="mt-4 h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chart}>
+        <ChartBox height={280}>
+          {(width, height) => (
+            <LineChart width={width} height={height} data={chart}>
               <CartesianGrid vertical={false} stroke="var(--line)" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} interval={2} tick={{ fill: 'var(--muted)', fontSize: 11 }} />
               <YAxis domain={[0, 100]} ticks={[0, 50, 100]} width={32} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }} />
               <Tooltip contentStyle={tip} />
-              <Line type="monotone" dataKey="you" name="You" stroke="#FF5100" strokeWidth={2.5} dot={{ r: 2.5, strokeWidth: 0, fill: '#FF5100' }} connectNulls />
-              <Line type="monotone" dataKey="crew" name={user ? 'Friends' : 'Practice'} stroke={theme === 'light' ? '#292524' : '#FAFAFA'} strokeOpacity={0.55} strokeDasharray="4 4" dot={false} connectNulls />
+              <Line type="monotone" dataKey="you" name="You" stroke="#FF5100" strokeWidth={2.5} dot={{ r: 2.5, strokeWidth: 0, fill: '#FF5100' }} connectNulls isAnimationActive={false} />
+              <Line type="monotone" dataKey="crew" name={user ? 'Friends' : 'Practice'} stroke={theme === 'light' ? '#292524' : '#FAFAFA'} strokeOpacity={0.55} strokeDasharray="4 4" dot={false} connectNulls isAnimationActive={false} />
             </LineChart>
-          </ResponsiveContainer>
-        </div>
+          )}
+        </ChartBox>
       </section>
     </motion.div>
   )

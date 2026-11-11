@@ -115,18 +115,18 @@ export function Finance() {
             {chart.slices.length === 0 ? (
               <p className="py-16 text-sm text-muted">No expenses in this calendar month yet.</p>
             ) : (
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={chart.slices} dataKey="value" nameKey="name" innerRadius={58} outerRadius={82} paddingAngle={3} stroke="transparent">
+            <ChartBox height={220}>
+              {(width, height) => (
+                <PieChart width={width} height={height}>
+                  <Pie data={chart.slices} dataKey="value" nameKey="name" innerRadius={58} outerRadius={82} paddingAngle={chart.slices.length > 1 ? 3 : 0} stroke="transparent" isAnimationActive={false}>
                     {chart.slices.map((slice, index) => (
                       <Cell key={slice.name} fill={colors[index % colors.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => money(value, currency)} contentStyle={tip} />
                 </PieChart>
-              </ResponsiveContainer>
-            </div>
+              )}
+            </ChartBox>
             )}
             <ul className="space-y-2">
               {chart.slices.map((slice, index) => (
@@ -142,17 +142,17 @@ export function Finance() {
           </section>
           <section className="card rounded-3xl p-5">
             <h2 className="font-display text-2xl">Last 7 days</h2>
-            <div className="mt-4 h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chart.days}>
+            <ChartBox height={240}>
+              {(width, height) => (
+                <BarChart width={width} height={height} data={chart.days}>
                   <CartesianGrid vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} />
                   <YAxis hide />
                   <Tooltip formatter={(value) => money(value, currency)} contentStyle={tip} cursor={{ fill: 'transparent' }} />
-                  <Bar dataKey="spent" fill="#FF5100" radius={[8, 8, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="spent" fill="#FF5100" radius={[8, 8, 0, 0]} maxBarSize={28} isAnimationActive={false} />
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
+              )}
+            </ChartBox>
           </section>
         </div>
       ) : (
@@ -205,7 +205,7 @@ function Figure({ label, value, warn = false }) {
   return (
     <div>
       <div className="label">{label}</div>
-      <div className={`mt-1 truncate font-display nums text-2xl md:text-3xl ${warn ? 'text-[#ffb4a2]' : ''}`}>{value}</div>
+      <div className={`mt-1 font-display nums text-[clamp(1rem,3.5vw,1.8rem)] leading-none tracking-tight ${warn ? 'text-[#ffb4a2]' : ''}`}>{value}</div>
     </div>
   )
 }

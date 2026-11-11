@@ -108,7 +108,7 @@ function Stat({ label, value, warn = false }) {
   return (
     <div className="min-w-0">
       <div className="label">{label}</div>
-      <div className={`mt-1 truncate font-display nums text-2xl ${warn ? 'text-[#ffb4a2]' : ''}`}>{value}</div>
+      <div className={`mt-1 font-display nums text-[clamp(1rem,3.5vw,1.7rem)] leading-none tracking-tight ${warn ? 'text-[#ffb4a2]' : ''}`}>{value}</div>
     </div>
   )
 }
