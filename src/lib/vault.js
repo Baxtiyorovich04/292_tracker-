@@ -44,6 +44,12 @@ function sanitizeTransaction(item) {
   }
 }
 
+function boundedCash(value) {
+  const amount = Math.round(Number(value) * 100) / 100
+  if (!Number.isFinite(amount) || amount <= 0) return 0
+  return Math.min(100000000, amount)
+}
+
 function sanitizePoint(point) {
   if (!point || !DATE.test(point.date || '')) return null
   return {
@@ -65,7 +71,10 @@ export function sanitize(raw) {
     profile: {
       displayName: String(profile.displayName || '').trim().slice(0, 40),
       currency: CURRENCIES.has(profile.currency) ? profile.currency : 'USD',
-      monthlyBudget: Math.max(0, Math.min(100000000, Number(profile.monthlyBudget) || 0)),
+      cash: boundedCash(profile.cash != null && profile.cash !== '' ? profile.cash : profile.monthlyBudget),
+      cashSet: typeof profile.cashSet === 'boolean'
+        ? profile.cashSet
+        : boundedCash(profile.cash != null && profile.cash !== '' ? profile.cash : profile.monthlyBudget) > 0,
       seenIntro: Boolean(profile.seenIntro),
       handle,
       friendIds: Array.isArray(profile.friendIds)

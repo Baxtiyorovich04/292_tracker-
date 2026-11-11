@@ -136,7 +136,7 @@ export function monthIncome(transactions, today = todayKey()) {
     .reduce((sum, item) => sum + Number(item.amount || 0), 0)
 }
 
-export function cashBalance(transactions) {
+export function cashBalance(transactions, cash = 0) {
   let income = 0
   let spent = 0
   for (const item of transactions || []) {
@@ -144,19 +144,53 @@ export function cashBalance(transactions) {
     if (item.kind === 'income') income += amount
     else spent += amount
   }
+  const start = Math.max(0, Number(cash) || 0)
   return {
-    balance: Math.round((income - spent) * 100) / 100,
+    balance: Math.round((start + income - spent) * 100) / 100,
     income: Math.round(income * 100) / 100,
     spent: Math.round(spent * 100) / 100,
+    cash: Math.round(start * 100) / 100,
   }
 }
 
-export function balanceSeries(transactions, today = todayKey()) {
+export function flowSeries(transactions, kind, today = todayKey()) {
+  const income = kind === 'income'
+  const items = [...(transactions || [])]
+    .filter((item) => item && item.date && Number(item.amount) > 0 && (income ? item.kind === 'income' : item.kind !== 'income'))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.createdAt || '').localeCompare(String(b.createdAt || ''))))
+
+  let total = 0
+  const points = items.map((item) => {
+    const amount = Math.round(Number(item.amount) * 100) / 100
+    total = Math.round((total + amount) * 100) / 100
+    return {
+      date: item.date,
+      total,
+      amount,
+      name: item.description || item.category || (income ? 'Income' : 'Expense'),
+    }
+  })
+
+  if (!points.length) {
+    return [
+      { date: today, total: 0, amount: 0, name: 'Start' },
+      { date: today, total: 0, amount: 0, name: 'Now' },
+    ]
+  }
+
+  const series = [{ date: points[0].date, total: 0, amount: 0, name: 'Start' }, ...points]
+  const last = series[series.length - 1]
+  if (last.date < today) series.push({ date: today, total: last.total, amount: 0, name: 'Now' })
+  return series
+}
+
+export function balanceSeries(transactions, today = todayKey(), cash = 0) {
   const items = [...(transactions || [])]
     .filter((item) => item && item.date && Number(item.amount) > 0)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.createdAt || '').localeCompare(String(b.createdAt || ''))))
 
-  let balance = 0
+  const start = Math.round(Math.max(0, Number(cash) || 0) * 100) / 100
+  let balance = start
   const points = items.map((item) => {
     const amount = Number(item.amount) || 0
     const income = item.kind === 'income'
@@ -171,8 +205,11 @@ export function balanceSeries(transactions, today = todayKey()) {
     }
   })
 
-  if (!points.length) return []
-  const series = [{ date: points[0].date, balance: 0, delta: 0, kind: 'start', name: 'Start' }, ...points]
+  if (!points.length) {
+    if (!start) return []
+    return [{ date: today, balance: start, delta: 0, kind: 'start', name: 'Start' }]
+  }
+  const series = [{ date: points[0].date, balance: start, delta: 0, kind: 'start', name: 'Start' }, ...points]
   const last = series[series.length - 1]
   if (last.date < today) series.push({ date: today, balance: last.balance, delta: 0, kind: 'now', name: 'Now' })
   return series
@@ -195,10 +232,9 @@ export function summarize(state, today = todayKey()) {
   const scored = disciplineScore(habits, today)
   const spent = monthSpent(transactions, today)
   const income = monthIncome(transactions, today)
-  const wallet = cashBalance(transactions)
-  const budget = Number(state?.profile?.monthlyBudget) || 0
+  const cash = Math.max(0, Number(state?.profile?.cash) || 0)
+  const wallet = cashBalance(transactions, cash)
   const yesterday = (state?.history || []).find((point) => point.date === shiftDay(today, -1))
-  const day = Number(today.slice(8, 10)) || 1
   return {
     ...scored,
     streak: currentStreak(habits, today),
@@ -206,9 +242,8 @@ export function summarize(state, today = todayKey()) {
     spent,
     income,
     balance: wallet.balance,
-    budget,
-    left: budget - spent,
-    average: spent / day,
+    cash: wallet.cash,
+    cashSet: Boolean(state?.profile?.cashSet),
     delta: yesterday ? scored.score - yesterday.score : null,
   }
 }

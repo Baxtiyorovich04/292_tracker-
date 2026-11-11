@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext.jsx'
 import { CATEGORIES, CATEGORY_COLORS, categoryLabel } from '../lib/catalog.js'
 import { lastNDays, shortDate, todayKey, weekdayInitial } from '../lib/dates.js'
 import { money } from '../lib/format.js'
-import { balanceSeries, cashBalance, summarize } from '../lib/metrics.js'
+import { cashBalance, flowSeries, summarize } from '../lib/metrics.js'
 import { TxSheet } from '../components/TxSheet.jsx'
 import { ChartBox } from '../components/ChartBox.jsx'
 import { useTitle } from '../components/ui.jsx'
@@ -23,21 +23,10 @@ export function Finance() {
   const today = todayKey()
   const stats = useMemo(() => (state ? summarize(state, today) : null), [state, today])
   const currency = state?.profile?.currency || 'USD'
-  const wallet = useMemo(() => cashBalance(state?.transactions), [state])
-  const rating = useMemo(() => {
-    const series = state ? balanceSeries(state.transactions, today) : []
-    if (!series.length) {
-      return [
-        { index: 0, date: `${today.slice(0, 8)}01`, label: 'Start', balance: 0, delta: 0, kind: 'start', name: 'Start' },
-        { index: 1, date: today, label: 'Now', balance: 0, delta: 0, kind: 'now', name: 'Now' },
-      ]
-    }
-    return series.map((point, index) => ({
-      index,
-      ...point,
-      label: index === 0 || index === series.length - 1 ? shortDate(point.date) : '',
-    }))
-  }, [state, today])
+  const cash = state?.profile?.cash || 0
+  const wallet = useMemo(() => cashBalance(state?.transactions, cash), [state, cash])
+  const incomeSeries = useMemo(() => axisLabels(flowSeries(state?.transactions, 'income', today)), [state, today])
+  const spentSeries = useMemo(() => axisLabels(flowSeries(state?.transactions, 'expense', today)), [state, today])
 
   const chart = useMemo(() => {
     if (!state) return { slices: [], days: [], groups: [] }
@@ -65,13 +54,7 @@ export function Finance() {
 
   if (!state || !stats) return null
   const colors = CATEGORY_COLORS[theme] || CATEGORY_COLORS.dark
-  const balances = rating.map((point) => point.balance)
-  const low = Math.min(0, ...balances)
-  const high = Math.max(0, ...balances)
-  const pad = Math.max(1, (high - low) * 0.18)
-  const domain = [low - pad, high + pad]
-  const latest = rating[rating.length - 1]
-  const ratio = stats.budget > 0 ? Math.min(100, (stats.spent / stats.budget) * 100) : 0
+  const spentColor = theme === 'light' ? '#292524' : '#fafafa'
   const tip = {
     background: theme === 'light' ? '#ffffff' : '#141414',
     border: theme === 'light' ? '1px solid rgba(20,20,20,0.1)' : '1px solid rgba(250,250,250,0.12)',
@@ -94,25 +77,11 @@ export function Finance() {
       </header>
 
       <section className="card rounded-3xl p-5">
-        <div className="grid grid-cols-3 gap-3">
-          <Figure label="Budget" value={stats.budget > 0 ? money(stats.budget, currency) : '—'} />
+        <div className="grid grid-cols-2 gap-3">
           <Figure label="Spent" value={money(stats.spent, currency)} />
-          <Figure label={stats.budget > 0 && stats.left < 0 ? 'Over' : 'Left'} value={stats.budget > 0 ? money(stats.left, currency) : '—'} warn={stats.left < 0 && stats.budget > 0} />
+          <Figure label="Income" value={money(stats.income, currency)} />
         </div>
-        {stats.budget > 0 ? (
-          <div className="mt-5">
-            <div className="h-2 overflow-hidden rounded-full bg-soft">
-              <div className="h-full rounded-full bg-ember" style={{ width: `${ratio}%` }} />
-            </div>
-            <p className="mt-2 text-sm text-muted">
-              Daily average {money(stats.average, currency)}
-              {stats.income > 0 ? ` · Income ${money(stats.income, currency)}` : ''}
-              {stats.left < 0 ? ` · ${money(Math.abs(stats.left), currency)} over budget` : ''}
-            </p>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-muted">Set a monthly budget to track what’s left.</p>
-        )}
+        <p className="mt-2 text-sm text-muted">This calendar month.</p>
 
         <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
@@ -126,40 +95,30 @@ export function Finance() {
             Spent {money(wallet.spent, currency)}
           </p>
         </div>
-        <ChartBox height={168}>
-          {(width, height) => (
-            <AreaChart width={width} height={height} data={rating} margin={{ top: 16, right: 8, left: 8, bottom: 0 }}>
-              <defs>
-                <linearGradient id="balance-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#FF5100" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="#FF5100" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} stroke="var(--line)" />
-              <XAxis dataKey="index" tickLine={false} axisLine={false} tickFormatter={(index) => rating[index]?.label || ''} tick={{ fill: 'var(--muted)', fontSize: 11 }} interval="preserveStartEnd" />
-              <YAxis hide domain={domain} />
-              <Tooltip content={<RatingTip currency={currency} />} cursor={{ stroke: 'rgba(255,81,0,0.45)', strokeWidth: 1 }} />
-              <Area type="monotone" dataKey="balance" stroke="#FF5100" strokeWidth={2.5} fill="url(#balance-fill)" dot={false} activeDot={{ r: 4, fill: '#FF5100', stroke: '#060607', strokeWidth: 2 }} isAnimationActive={false} />
-              <ReferenceDot x={latest.index} y={latest.balance} r={4} fill="#FF5100" stroke="#060607" strokeWidth={2} />
-            </AreaChart>
-          )}
-        </ChartBox>
-        <p className="text-sm text-muted">Every income lifts the line. Every spend pulls it down.</p>
+        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <FlowChart title="Income" caption="Money in." points={incomeSeries} currency={currency} color="#FF5100" gradientId="income-flow" />
+          <FlowChart title="Spent" caption="Money out." points={spentSeries} currency={currency} color={spentColor} gradientId="spent-flow" />
+        </div>
 
-        <label className="mt-4 block max-w-xs">
-          <span className="label">Monthly budget</span>
-          <input
-            className="field mt-2"
-            inputMode="decimal"
-            defaultValue={state.profile.monthlyBudget || ''}
-            key={state.profile.monthlyBudget}
-            onBlur={(event) => {
-              const next = Math.max(0, Math.round(Number(event.target.value) * 100) / 100)
-              if (Number.isFinite(next)) updateProfile({ monthlyBudget: next })
-            }}
-            aria-label="Monthly budget"
-          />
-        </label>
+        {!state.profile.cashSet && (
+          <label className="mt-4 block max-w-xs">
+            <span className="label">Money you have</span>
+            <input
+              className="field mt-2"
+              inputMode="decimal"
+              placeholder="0"
+              onBlur={(event) => {
+                const trimmed = event.target.value.trim()
+                if (!trimmed) return
+                const next = Math.round(Number(trimmed) * 100) / 100
+                if (!Number.isFinite(next) || next < 0) return
+                updateProfile({ cash: Math.min(100000000, next), cashSet: true })
+              }}
+              aria-label="Money you have"
+            />
+            <span className="mt-2 block text-sm text-muted">Added once. Change it anytime in You.</span>
+          </label>
+        )}
       </section>
 
       {hasSpend ? (
@@ -255,22 +214,53 @@ export function Finance() {
   )
 }
 
-function RatingTip({ active, payload, currency }) {
+function axisLabels(points) {
+  let seen = ''
+  return points.map((point, index) => {
+    const label = point.date === seen ? '' : shortDate(point.date)
+    seen = point.date
+    return { index, ...point, label }
+  })
+}
+
+function FlowChart({ title, caption, points, currency, color, gradientId }) {
+  const high = Math.max(1, ...points.map((point) => point.total))
+  const latest = points[points.length - 1]
+  return (
+    <div className="min-w-0">
+      <p className="label">{title}</p>
+      <ChartBox height={148}>
+        {(width, height) => (
+          <AreaChart width={width} height={height} data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.45} />
+                <stop offset="100%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="var(--line)" />
+            <XAxis dataKey="index" tickLine={false} axisLine={false} tickFormatter={(index) => points[index]?.label || ''} tick={{ fill: 'var(--muted)', fontSize: 11 }} interval="preserveStartEnd" />
+            <YAxis hide domain={[0, high * 1.18]} />
+            <Tooltip content={<FlowTip currency={currency} />} cursor={{ stroke: color, strokeOpacity: 0.45, strokeWidth: 1 }} />
+            <Area type="monotone" dataKey="total" stroke={color} strokeWidth={2.5} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 4, fill: color, stroke: '#060607', strokeWidth: 2 }} isAnimationActive={false} />
+            <ReferenceDot x={latest.index} y={latest.total} r={4} fill={color} stroke="#060607" strokeWidth={2} />
+          </AreaChart>
+        )}
+      </ChartBox>
+      <p className="text-sm text-muted">{caption}</p>
+    </div>
+  )
+}
+
+function FlowTip({ active, payload, currency }) {
   if (!active || !payload?.length) return null
   const point = payload[0].payload
-  const moved = point.kind === 'income' || point.kind === 'expense'
   return (
     <div className="rounded-2xl border border-line px-3 py-2 text-sm shadow-lg" style={{ background: 'var(--nav)', color: 'var(--fg)' }}>
       <div className="text-muted">{shortDate(point.date)}</div>
-      {moved ? (
-        <div>
-          {point.kind === 'income' ? '+' : '−'}
-          {money(Math.abs(point.delta), currency)} {point.name}
-        </div>
-      ) : (
-        <div>{point.kind === 'start' ? 'Start' : 'Holding'}</div>
-      )}
-      <div className="nums font-medium">{money(point.balance, currency)}</div>
+      <div>{point.amount ? point.name : point.name === 'Now' ? 'Holding' : 'Start'}</div>
+      {point.amount ? <div className="nums">{money(point.amount, currency)}</div> : null}
+      <div className="nums font-medium">{money(point.total, currency)}</div>
     </div>
   )
 }

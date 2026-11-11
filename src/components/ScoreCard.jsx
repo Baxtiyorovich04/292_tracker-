@@ -63,20 +63,18 @@ export function ScoreCard() {
   const reduce = useReducedMotion()
   const today = todayKey()
   const stats = useMemo(() => summarize(state, today), [state, today])
-  const wallet = useMemo(() => cashBalance(state?.transactions), [state])
+  const wallet = useMemo(() => cashBalance(state?.transactions, stats.cash), [state, stats.cash])
   const showingBalance = view === 'balance'
-  const hasBudget = stats.budget > 0
-  const shownMoney = hasBudget ? stats.left : wallet.balance
+  const shownMoney = wallet.balance
+  const pot = wallet.cash + wallet.income
   const ratio = showingBalance
-    ? hasBudget
-      ? Math.max(0, Math.min(1, stats.left / stats.budget))
-      : wallet.income > 0
-        ? Math.max(0, Math.min(1, wallet.balance / wallet.income))
-        : 0
+    ? pot > 0
+      ? Math.max(0, Math.min(1, wallet.balance / pot))
+      : 0
     : stats.score / 100
   const offset = drawnView === view ? CIRC - ratio * CIRC : CIRC
   const currency = state?.profile?.currency || 'USD'
-  const budgetLabel = hasBudget ? money(stats.left, currency) : 'Set budget'
+  const balanceLabel = money(wallet.balance, currency)
   const places = Number.isInteger(shownMoney) ? 0 : 2
   const figure = showingBalance ? moneyCount(shownMoney, currency, places) : String(stats.score)
   const month = monthLabel(today)
@@ -95,15 +93,11 @@ export function ScoreCard() {
           ? `Level with yesterday, across ${month}.`
           : `${stats.delta > 0 ? '+' : ''}${stats.delta} since yesterday, across ${month}.`
 
-  const balanceCopy = hasBudget
-    ? stats.left < 0
-      ? `${money(Math.abs(stats.left), currency)} over this month’s budget.`
-      : `${money(stats.spent, currency)} spent of ${money(stats.budget, currency)} this month.`
-    : wallet.income === 0 && wallet.spent === 0
-      ? 'Set a monthly budget, or log income and spending.'
-      : wallet.balance < 0
-        ? 'Spent more than the income you’ve logged.'
-        : 'Income minus every expense you’ve logged.'
+  const balanceCopy = !stats.cashSet && wallet.income === 0 && wallet.spent === 0
+    ? 'Add the money you have on Wallet. You can change it later in You.'
+    : wallet.balance < 0
+      ? 'Spent more than the money you’ve logged.'
+      : 'Starting cash, plus income, minus every expense.'
 
   return (
     <section className="@container card min-w-0 rounded-3xl p-4 sm:p-5">
@@ -186,7 +180,7 @@ export function ScoreCard() {
                     render={(current) => (showingBalance ? moneyCount(current, currency, places) : String(Math.round(current)))}
                   />
                 </div>
-                <div className="label mt-1">{showingBalance ? (hasBudget && stats.left < 0 ? 'Over' : 'Balance') : 'Score'}</div>
+                <div className="label mt-1">{showingBalance ? 'Balance' : 'Score'}</div>
               </div>
             </div>
             <div className="min-w-0">
@@ -201,7 +195,7 @@ export function ScoreCard() {
       <div className="mt-5 grid grid-cols-3 gap-2 border-t border-line pt-4">
         <Stat label="Streak" value={<span className="inline-flex items-center gap-1"><Flame size={16} className="text-ember" aria-hidden="true" />{stats.streak}</span>} />
         <Stat label="Done" value={stats.completed} />
-        <Stat label={stats.left < 0 && stats.budget > 0 ? 'Over' : 'Left'} value={budgetLabel} warn={stats.left < 0 && stats.budget > 0} />
+        <Stat label="Balance" value={balanceLabel} warn={wallet.balance < 0} />
       </div>
 
       <ActivityCalendar habits={state.habits} today={today} month={month} />
@@ -211,7 +205,7 @@ export function ScoreCard() {
       </button>
       {open && (
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          The number is your average completion of main habits on days scheduled this calendar month. Each side quest you finish this month adds 3 points, up to 12, and the total stops at 100. If you have no main habits, each finished side quest is worth 20. Days before a habit existed are skipped, so a habit added today only counts today until more of the month is scheduled. The calendar is this month: a day stays dark until you finish something, then burns brighter the more you complete. The streak is separate: it counts scheduled days where every main habit was done. Today does not break it until the day ends, and rest days are skipped. Balance is what remains of this month’s budget. With no budget set, it is every income entry minus every expense.
+          The number is your average completion of main habits on days scheduled this calendar month. Each side quest you finish this month adds 3 points, up to 12, and the total stops at 100. If you have no main habits, each finished side quest is worth 20. Days before a habit existed are skipped, so a habit added today only counts today until more of the month is scheduled. The calendar is this month: a day stays dark until you finish something, then burns brighter the more you complete. The streak is separate: it counts scheduled days where every main habit was done. Today does not break it until the day ends, and rest days are skipped. Balance starts from the cash you enter once, then adds every income entry and subtracts every expense. Change that starting cash in You.
         </p>
       )}
     </section>

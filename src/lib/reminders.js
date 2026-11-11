@@ -72,16 +72,29 @@ export function armReminderClock(habits, onFire) {
   armed = window.setTimeout(() => onFire(), Math.min(soonest + 500, 2_000_000_000))
 }
 
-async function notify(habit, key) {
-  const title = habit.title || '292'
-  const body = habit.note ? habit.note : `Time for ${title}.`
-  const options = { body, tag: key, icon: '/icon-192.png', data: { url: '/' } }
+async function showNotification(title, body, tag, url) {
+  const options = { body, tag, icon: '/icon-192.png', data: { url } }
   const registration = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null
   if (registration) {
     await registration.showNotification(title, options)
     return
   }
   new Notification(title, options)
+}
+
+async function notify(habit, key) {
+  const title = habit.title || '292'
+  const body = habit.note ? habit.note : `Time for ${title}.`
+  await showNotification(title, body, key, '/')
+}
+
+export async function remindFriendAdds(message) {
+  if (!message || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  try {
+    await showNotification('Friend added', message, 'friend-add', '/rank')
+  } catch {
+    // The in-app reminder still shows.
+  }
 }
 
 export async function fireDueReminders(habits, now = new Date()) {

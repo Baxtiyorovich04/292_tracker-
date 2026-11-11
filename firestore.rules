@@ -6,6 +6,8 @@ rules_version = '2';
 // The signed-in user is the only principal who can read or write that document.
 // publicProfiles exposes the scoreboard fields needed for Rank (no habits, notes, or money).
 // handles/{tag} is a public alias so friends can be added without sharing a raw user id.
+// friendAdds/{userId}/from/{fromUid} tells you that someone added you. Only you can read it.
+// The sender can create and delete only their own note.
 // Deploy with: firebase deploy --only firestore:rules
 
 service cloud.firestore {
@@ -68,6 +70,28 @@ service cloud.firestore {
         && request.resource.data.updatedAt is number;
 
       allow delete: if owns(userId);
+    }
+
+    match /friendAdds/{targetUid}/from/{fromUid} {
+      allow read: if owns(targetUid);
+
+      allow create: if signedIn()
+        && request.auth.uid == fromUid
+        && request.resource.data.keys().hasOnly(['handle', 'displayName', 'createdAt'])
+        && request.resource.data.handle is string
+        && (
+          request.resource.data.handle == ''
+          || request.resource.data.handle.matches('^[a-z0-9]{3,12}$')
+        )
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 40
+        && request.resource.data.createdAt is number
+        && request.resource.data.createdAt > 0;
+
+      allow update: if false;
+
+      allow delete: if owns(targetUid) || (signedIn() && request.auth.uid == fromUid);
     }
 
     match /handles/{tag} {

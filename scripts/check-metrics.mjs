@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   balanceSeries,
+  flowSeries,
   cashBalance,
   currentStreak,
   dayHeat,
@@ -99,7 +100,7 @@ assert.deepEqual(
     { amount: 12.5, kind: 'expense', date: '2026-11-02' },
     { amount: 40, kind: 'income', date: '2026-11-03' },
   ]),
-  { balance: 127.5, income: 140, spent: 12.5 },
+  { balance: 127.5, income: 140, spent: 12.5, cash: 0 },
 )
 
 assert.equal(dayHeat([perfect], '2026-11-11').level, 1)
@@ -128,6 +129,43 @@ assert.deepEqual(
     ['expense', 60],
     ['income', 70],
     ['now', 70],
+  ],
+)
+
+assert.deepEqual(
+  balanceSeries(
+    [{ amount: 40, kind: 'expense', date: '2026-11-02', createdAt: 'b', description: 'Food' }],
+    '2026-11-11',
+    3000,
+  ).map((point) => [point.kind, point.balance]),
+  [
+    ['start', 3000],
+    ['expense', 2960],
+    ['now', 2960],
+  ],
+)
+assert.equal(cashBalance([{ amount: 25, kind: 'expense' }], 3000).balance, 2975)
+
+const flowItems = [
+  { amount: 100, kind: 'income', date: '2026-11-02', createdAt: 'a', description: 'Pay' },
+  { amount: 40, kind: 'expense', date: '2026-11-02', createdAt: 'b', description: 'Food' },
+  { amount: 10, kind: 'income', date: '2026-11-05', createdAt: 'c', description: 'Gift' },
+]
+assert.deepEqual(
+  flowSeries(flowItems, 'income', '2026-11-11').map((point) => [point.name, point.total]),
+  [
+    ['Start', 0],
+    ['Pay', 100],
+    ['Gift', 110],
+    ['Now', 110],
+  ],
+)
+assert.deepEqual(
+  flowSeries(flowItems, 'expense', '2026-11-11').map((point) => [point.name, point.total]),
+  [
+    ['Start', 0],
+    ['Food', 40],
+    ['Now', 40],
   ],
 )
 

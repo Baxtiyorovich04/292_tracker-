@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { firebaseConfigured } from '../lib/catalog.js'
+import { friendAddMessage, takeUnseenFriendAdds } from '../lib/friends.js'
 import { withHistory } from '../lib/metrics.js'
+import { remindFriendAdds } from '../lib/reminders.js'
 import { starterState } from '../lib/seed.js'
 import { readVault, sanitize, writeVault } from '../lib/vault.js'
 
@@ -16,6 +18,7 @@ export function StoreProvider({ children }) {
   const [notice, setNotice] = useState('')
   const [board, setBoard] = useState(null)
   const [friends, setFriends] = useState([])
+  const [incoming, setIncoming] = useState([])
   const fb = useRef(null)
   const stateRef = useRef(null)
   const lastPushed = useRef('')
@@ -84,6 +87,7 @@ export function StoreProvider({ children }) {
             setSync('local')
             setBoard(null)
             setFriends([])
+            setIncoming([])
             loadedFor.current = null
             booted.current = true
             setReady(true)
@@ -186,6 +190,21 @@ export function StoreProvider({ children }) {
     }
   }, [user, friendKey])
 
+  useEffect(() => {
+    if (!user || !fb.current) {
+      setIncoming([])
+      return undefined
+    }
+    return fb.current.listenFriendAdds(user.uid, (rows) => {
+      setIncoming(rows)
+      const fresh = takeUnseenFriendAdds(rows)
+      if (!fresh.length) return
+      const message = friendAddMessage(fresh)
+      flash(message)
+      remindFriendAdds(message).catch(() => {})
+    })
+  }, [user])
+
   function enterDemo() {
     localStorage.setItem('292-demo', '1')
     setDemo(true)
@@ -234,13 +253,14 @@ export function StoreProvider({ children }) {
     setState(null)
     setBoard(null)
     setFriends([])
+    setIncoming([])
     setSync('local')
   }
 
   async function deleteCloud() {
     if (!user || !fb.current) return { ok: false, message: 'Sign in first.' }
     try {
-      await fb.current.deleteCloud(user, stateRef.current?.profile?.handle)
+      await fb.current.deleteCloud(user, stateRef.current?.profile?.handle, stateRef.current?.profile?.friendIds)
       localStorage.removeItem(`292-vault-${user.uid}`)
       await signOutUser()
       flash('Cloud vault deleted.')
@@ -339,8 +359,17 @@ export function StoreProvider({ children }) {
     const found = await fb.current.lookupHandle(tag)
     if (!found.ok) return found
     if (found.uid === user.uid) return { ok: false, message: 'That tag is yours.' }
-    const friendIds = [...new Set([...(stateRef.current?.profile?.friendIds || []), found.uid])]
-    updateProfile({ friendIds })
+    const existing = stateRef.current?.profile?.friendIds || []
+    if (existing.includes(found.uid)) return { ok: false, message: 'Already on your friends list.' }
+    const profile = stateRef.current?.profile || {}
+    updateProfile({ friendIds: [...existing, found.uid] })
+    fb.current
+      .pingFriend(found.uid, {
+        uid: user.uid,
+        handle: profile.handle || '',
+        displayName: profile.displayName || '',
+      })
+      .catch(() => {})
     flash(`Added @${found.handle}.`)
     return { ok: true }
   }
@@ -348,6 +377,12 @@ export function StoreProvider({ children }) {
   function removeFriend(uid) {
     const friendIds = (stateRef.current?.profile?.friendIds || []).filter((id) => id !== uid)
     updateProfile({ friendIds })
+    if (user && fb.current) fb.current.clearFriendPing(uid, user.uid).catch(() => {})
+  }
+
+  function dismissFriendAdds() {
+    if (!user || !fb.current) return
+    for (const person of incoming) fb.current.clearFriendPing(user.uid, person.uid).catch(() => {})
   }
 
   const value = {
@@ -360,6 +395,7 @@ export function StoreProvider({ children }) {
     notice,
     board,
     friends,
+    incoming,
     enterDemo,
     signInEmail,
     signUpEmail,
@@ -379,6 +415,7 @@ export function StoreProvider({ children }) {
     claimHandle,
     addFriend,
     removeFriend,
+    dismissFriendAdds,
   }
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

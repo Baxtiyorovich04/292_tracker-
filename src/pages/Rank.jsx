@@ -20,6 +20,7 @@ export function Rank() {
   const [tag, setTag] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pendingRemove, setPendingRemove] = useState('')
   useTitle('Rank')
 
   const today = todayKey()
@@ -133,34 +134,57 @@ export function Rank() {
           <p className="text-sm text-muted">Loading the board…</p>
         ) : (
           <ol className="space-y-2">
-            {rows.map((row, index) => (
-              <li key={row.uid} className={`card flex items-center gap-3 rounded-2xl px-3 py-3 ${row.you ? 'ring-1 ring-ember' : ''}`}>
-                <span className="w-8 font-display nums text-lg text-muted">{String(index + 1).padStart(2, '0')}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{row.you ? 'You' : row.displayName}</span>
-                  <span className="block truncate text-xs text-muted">
-                    {row.you
-                      ? row.handle
-                        ? `@${row.handle}`
-                        : 'Your score'
-                      : row.handle
-                        ? `@${row.handle}`
-                        : row.practice
-                          ? 'Practice'
-                          : 'Player'}
-                  </span>
-                </span>
-                <span className="text-right">
-                  <span className="block font-display nums text-2xl leading-none">{row.score}</span>
-                  <span className="text-[11px] text-muted">{row.streak}d streak</span>
-                </span>
-                {user && tab === 'friends' && !row.you && (
-                  <button className="text-xs text-muted" type="button" onClick={() => removeFriend(row.uid)}>
-                    Remove
-                  </button>
-                )}
-              </li>
-            ))}
+            {rows.map((row, index) => {
+              const label = row.handle ? `@${row.handle}` : row.displayName
+              return (
+                <li key={row.uid} className={`card rounded-2xl px-3 py-3 ${row.you ? 'ring-1 ring-ember' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 font-display nums text-lg text-muted">{String(index + 1).padStart(2, '0')}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{row.you ? 'You' : row.displayName}</span>
+                      <span className="block truncate text-xs text-muted">
+                        {row.you
+                          ? row.handle
+                            ? `@${row.handle}`
+                            : 'Your score'
+                          : row.handle
+                            ? `@${row.handle}`
+                            : row.practice
+                              ? 'Practice'
+                              : 'Player'}
+                      </span>
+                    </span>
+                    <span className="text-right">
+                      <span className="block font-display nums text-2xl leading-none">{row.score}</span>
+                      <span className="text-[11px] text-muted">{row.streak}d streak</span>
+                    </span>
+                    {user && tab === 'friends' && !row.you && pendingRemove !== row.uid && (
+                      <button className="text-xs text-muted" type="button" onClick={() => setPendingRemove(row.uid)}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {user && tab === 'friends' && !row.you && pendingRemove === row.uid && (
+                    <p className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm" role="status">
+                      <span className="text-muted">Remove {label}?</span>
+                      <button
+                        className="font-medium text-ember"
+                        type="button"
+                        onClick={() => {
+                          removeFriend(row.uid)
+                          setPendingRemove('')
+                        }}
+                      >
+                        Confirm
+                      </button>
+                      <button className="text-muted" type="button" onClick={() => setPendingRemove('')}>
+                        Cancel
+                      </button>
+                    </p>
+                  )}
+                </li>
+              )
+            })}
           </ol>
         )}
         {!user && (

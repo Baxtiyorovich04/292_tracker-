@@ -30,6 +30,7 @@ export function You() {
   const fileRef = useRef(null)
   const navigate = useNavigate()
   const [name, setName] = useState('')
+  const [cash, setCash] = useState('')
   const [handle, setHandle] = useState('')
   const [handleNote, setHandleNote] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
@@ -45,6 +46,7 @@ export function You() {
     if (!state) return
     setName(state.profile.displayName || '')
     setHandle(state.profile.handle || '')
+    setCash(state.profile.cashSet || state.profile.cash ? String(state.profile.cash || 0) : '')
   }, [state])
 
   useEffect(() => {
@@ -136,6 +138,28 @@ export function You() {
             onChange={(event) => setName(event.target.value)}
             onBlur={() => updateProfile({ displayName: name.trim() })}
           />
+        </label>
+        <label className="block">
+          <span className="label">Money you have</span>
+          <input
+            className="field mt-2"
+            inputMode="decimal"
+            value={cash}
+            placeholder="0"
+            onChange={(event) => setCash(event.target.value)}
+            onBlur={() => {
+              const trimmed = cash.trim()
+              if (!trimmed) {
+                updateProfile({ cash: 0, cashSet: true })
+                return
+              }
+              const next = Math.round(Number(trimmed) * 100) / 100
+              if (!Number.isFinite(next) || next < 0) return
+              updateProfile({ cash: Math.min(100000000, next), cashSet: true })
+            }}
+            aria-label="Money you have"
+          />
+          <span className="mt-2 block text-sm text-muted">Starting cash. Income adds to it and spending takes it down.</span>
         </label>
         <label className="block">
           <span className="label">Currency</span>
@@ -260,8 +284,7 @@ export function You() {
 function StatsPreview({ state }) {
   const stats = summarize(state, todayKey())
   const currency = state.profile?.currency || 'USD'
-  const moneyLabel = stats.budget > 0 ? (stats.left < 0 ? 'Over' : 'Left') : 'Balance'
-  const figure = stats.budget > 0 ? money(stats.left, currency) : money(stats.balance, currency)
+  const figure = money(stats.balance, currency)
 
   return (
     <div className="rounded-2xl border border-line bg-bg p-4">
@@ -272,7 +295,7 @@ function StatsPreview({ state }) {
         </div>
         <div className="text-right">
           <p className="font-display nums text-2xl leading-none tracking-tight">{figure}</p>
-          <p className="label mt-2">{moneyLabel}</p>
+          <p className="label mt-2">Balance</p>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">

@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { CloudOff, PanelLeft, PanelLeftClose } from 'lucide-react'
 import { useStore } from '../context/Store.jsx'
+import { friendAddMessage } from '../lib/friends.js'
 import { NAV } from './icons.jsx'
 
 export function Shell({ children }) {
-  const { offline, sync, user } = useStore()
+  const { offline, sync, user, incoming, dismissFriendAdds } = useStore()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('292-nav') === 'compact')
 
   function toggleNav() {
@@ -54,6 +55,14 @@ export function Shell({ children }) {
           <div className="flex items-center justify-center gap-2 bg-ember/15 px-4 py-2 text-center text-xs" role="status">
             <CloudOff size={14} aria-hidden="true" />
             {offline ? 'Offline. Edits stay on this device until you reconnect.' : 'Saved on this device. Cloud sync did not go through.'}
+          </div>
+        )}
+        {incoming.length > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-ember/15 px-4 py-2 text-center text-xs" role="status">
+            <span>{friendAddMessage(incoming)}</span>
+            <button className="font-medium" type="button" onClick={dismissFriendAdds}>
+              Dismiss
+            </button>
           </div>
         )}
         <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 pt-5 pb-28 md:px-8 md:pt-8 md:pb-12">{children}</main>

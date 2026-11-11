@@ -23,7 +23,8 @@ export function starterState() {
     profile: {
       displayName: '',
       currency: 'USD',
-      monthlyBudget: 1200,
+      cash: 0,
+      cashSet: false,
       seenIntro: false,
       handle: '',
       friendIds: [],

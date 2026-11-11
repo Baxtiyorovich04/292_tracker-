@@ -55,7 +55,7 @@ export function Widget() {
   const currency = state.profile?.currency || 'USD'
   const { mains, sides } = itemsForDay(state.habits, today, today)
   const open = [...mains, ...sides].filter((habit) => !isComplete(habit, habit.type === 'side' ? habit.due : today)).slice(0, 4)
-  const left = stats.budget > 0 ? money(stats.left, currency) : money(stats.balance, currency)
+  const left = money(stats.balance, currency)
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
 
   async function install() {
@@ -79,7 +79,7 @@ export function Widget() {
           </div>
           <div className="text-right">
             <p className="font-display nums text-3xl leading-none tracking-tight">{left}</p>
-            <p className="label mt-2">{stats.budget > 0 ? 'Left' : 'Balance'}</p>
+            <p className="label mt-2">Balance</p>
           </div>
         </div>
         <div className="mt-6 grid grid-cols-2 gap-3">

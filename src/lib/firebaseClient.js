@@ -17,6 +17,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   getFirestore,
   initializeFirestore,
   limit,
@@ -132,6 +133,45 @@ export async function claimHandle(user, tag, previous) {
   return { ok: true, handle: clean }
 }
 
+function friendNote(from) {
+  const handle = String(from.handle || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 12)
+  const displayName = String(from.displayName || '').trim().slice(0, 40) || 'Player'
+  return {
+    handle: /^[a-z0-9]{3,12}$/.test(handle) ? handle : '',
+    displayName,
+    createdAt: Date.now(),
+  }
+}
+
+export function pingFriend(targetUid, from) {
+  return setDoc(doc(db, 'friendAdds', targetUid, 'from', from.uid), friendNote(from))
+}
+
+export function clearFriendPing(targetUid, fromUid) {
+  return deleteDoc(doc(db, 'friendAdds', targetUid, 'from', fromUid)).catch(() => {})
+}
+
+export function listenFriendAdds(uid, callback) {
+  return onSnapshot(
+    collection(db, 'friendAdds', uid, 'from'),
+    (snap) => {
+      const rows = snap.docs.map((item) => ({ uid: item.id, ...item.data() }))
+      rows.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      callback(rows)
+    },
+    () => callback([]),
+  )
+}
+
+async function clearIncomingAdds(uid) {
+  const snap = await getDocs(collection(db, 'friendAdds', uid, 'from')).catch(() => null)
+  if (!snap) return
+  await Promise.all(snap.docs.map((item) => deleteDoc(item.ref).catch(() => {})))
+}
+
 export async function lookupHandle(tag) {
   const clean = tag.trim().toLowerCase().replace(/^@/, '')
   if (!/^[a-z0-9]{3,12}$/.test(clean)) return { ok: false, message: 'Tags are 3–12 letters or numbers.' }
@@ -140,7 +180,9 @@ export async function lookupHandle(tag) {
   return { ok: true, uid: snap.data().uid, handle: clean }
 }
 
-export async function deleteCloud(user, handle) {
+export async function deleteCloud(user, handle, friendIds) {
+  await Promise.all((friendIds || []).map((id) => clearFriendPing(id, user.uid)))
+  await clearIncomingAdds(user.uid)
   await deleteDoc(doc(db, 'users', user.uid)).catch(() => {})
   await deleteDoc(doc(db, 'publicProfiles', user.uid)).catch(() => {})
   if (handle) {
