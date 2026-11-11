@@ -178,7 +178,7 @@ export function ScoreCard() {
               </svg>
               <div className="absolute px-3 text-center">
                 <div
-                  className={`font-display nums leading-none tracking-tight ${showingBalance ? (figure.length > 8 ? 'text-2xl' : 'text-3xl') : 'text-5xl'} ${showingBalance && shownMoney < 0 ? 'text-[#ffb4a2]' : ''}`}
+                  className={`font-display nums leading-none tracking-tight ${showingBalance ? (figure.length > 8 ? 'text-lg @[26rem]:text-2xl' : 'text-2xl @[26rem]:text-3xl') : 'text-3xl @[26rem]:text-5xl'} ${showingBalance && shownMoney < 0 ? 'text-[#ffb4a2]' : ''}`}
                   aria-live="polite"
                 >
                   <CountFigure
