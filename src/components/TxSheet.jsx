@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CATEGORIES, INCOME_CATEGORIES, categoryLabel } from '../lib/catalog.js'
 import { todayKey } from '../lib/dates.js'
+import { amountDraft, parseAmount } from '../lib/format.js'
 import { useStore } from '../context/Store.jsx'
 import { Glyph } from './icons.jsx'
 import { Sheet } from './ui.jsx'
@@ -14,19 +15,23 @@ export function TxSheet({ open, tx, defaultDate, onClose }) {
   const [date, setDate] = useState(todayKey())
   const [error, setError] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const openingKey = open ? `${tx?.id || 'new'}|${defaultDate || ''}` : ''
+  const [shown, setShown] = useState(openingKey)
 
-  useEffect(() => {
-    if (!open) return
-    const openingKind = tx?.kind === 'income' ? 'income' : 'expense'
-    const openingChoices = openingKind === 'income' ? INCOME_CATEGORIES : CATEGORIES
-    setAmount(tx ? String(tx.amount) : '')
-    setKind(openingKind)
-    setCategory(openingChoices.some((item) => item.id === tx?.category) ? tx.category : openingChoices[0].id)
-    setDescription(tx?.description || '')
-    setDate(tx?.date || defaultDate || todayKey())
-    setError('')
-    setConfirming(false)
-  }, [open, tx, defaultDate])
+  if (shown !== openingKey) {
+    setShown(openingKey)
+    if (openingKey) {
+      const openingKind = tx?.kind === 'income' ? 'income' : 'expense'
+      const openingChoices = openingKind === 'income' ? INCOME_CATEGORIES : CATEGORIES
+      setAmount(tx ? String(tx.amount) : '')
+      setKind(openingKind)
+      setCategory(openingChoices.some((item) => item.id === tx?.category) ? tx.category : openingChoices[0].id)
+      setDescription(tx?.description || '')
+      setDate(tx?.date || defaultDate || todayKey())
+      setError('')
+      setConfirming(false)
+    }
+  }
 
   const choices = kind === 'income' ? INCOME_CATEGORIES : CATEGORIES
 
@@ -37,7 +42,7 @@ export function TxSheet({ open, tx, defaultDate, onClose }) {
   }
 
   function save() {
-    const value = Math.round(Number(amount) * 100) / 100
+    const value = parseAmount(amount)
     if (!Number.isFinite(value) || value <= 0) {
       setError('Enter an amount greater than zero.')
       return
@@ -80,9 +85,14 @@ export function TxSheet({ open, tx, defaultDate, onClose }) {
           <span className="label">Amount</span>
           <input
             className="field mt-2 font-display text-3xl"
+            type="text"
             inputMode="decimal"
+            autoComplete="off"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onChange={(event) => {
+              const next = amountDraft(event.target.value)
+              if (next !== null) setAmount(next)
+            }}
             placeholder="0"
             autoFocus
           />

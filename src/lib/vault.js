@@ -1,4 +1,5 @@
 import { todayKey } from './dates.js'
+import { parseAmount } from './format.js'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -31,7 +32,7 @@ function sanitizeHabit(habit) {
 
 function sanitizeTransaction(item) {
   if (!item || typeof item !== 'object') return null
-  const amount = Math.round(Number(item.amount) * 100) / 100
+  const amount = parseAmount(item.amount)
   if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) return null
   return {
     id: String(item.id || crypto.randomUUID()),
@@ -45,7 +46,7 @@ function sanitizeTransaction(item) {
 }
 
 function boundedCash(value) {
-  const amount = Math.round(Number(value) * 100) / 100
+  const amount = parseAmount(value)
   if (!Number.isFinite(amount) || amount <= 0) return 0
   return Math.min(100000000, amount)
 }

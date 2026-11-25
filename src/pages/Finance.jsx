@@ -6,7 +6,7 @@ import { useStore } from '../context/Store.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { CATEGORIES, CATEGORY_COLORS, categoryLabel } from '../lib/catalog.js'
 import { lastNDays, shortDate, todayKey, weekdayInitial } from '../lib/dates.js'
-import { money } from '../lib/format.js'
+import { money, parseAmount } from '../lib/format.js'
 import { cashBalance, flowSeries, summarize } from '../lib/metrics.js'
 import { TxSheet } from '../components/TxSheet.jsx'
 import { ChartBox } from '../components/ChartBox.jsx'
@@ -110,7 +110,7 @@ export function Finance() {
               onBlur={(event) => {
                 const trimmed = event.target.value.trim()
                 if (!trimmed) return
-                const next = Math.round(Number(trimmed) * 100) / 100
+                const next = parseAmount(trimmed)
                 if (!Number.isFinite(next) || next < 0) return
                 updateProfile({ cash: Math.min(100000000, next), cashSet: true })
               }}

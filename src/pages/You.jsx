@@ -6,7 +6,7 @@ import { useStore } from '../context/Store.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { CURRENCIES, firebaseConfigured } from '../lib/catalog.js'
 import { todayKey } from '../lib/dates.js'
-import { money } from '../lib/format.js'
+import { amountDraft, money, parseAmount } from '../lib/format.js'
 import { summarize } from '../lib/metrics.js'
 import { AuthForm } from '../components/AuthForm.jsx'
 import { Sheet, useTitle } from '../components/ui.jsx'
@@ -143,17 +143,22 @@ export function You() {
           <span className="label">Money you have</span>
           <input
             className="field mt-2"
+            type="text"
             inputMode="decimal"
+            autoComplete="off"
             value={cash}
             placeholder="0"
-            onChange={(event) => setCash(event.target.value)}
+            onChange={(event) => {
+              const next = amountDraft(event.target.value)
+              if (next !== null) setCash(next)
+            }}
             onBlur={() => {
               const trimmed = cash.trim()
               if (!trimmed) {
                 updateProfile({ cash: 0, cashSet: true })
                 return
               }
-              const next = Math.round(Number(trimmed) * 100) / 100
+              const next = parseAmount(trimmed)
               if (!Number.isFinite(next) || next < 0) return
               updateProfile({ cash: Math.min(100000000, next), cashSet: true })
             }}
